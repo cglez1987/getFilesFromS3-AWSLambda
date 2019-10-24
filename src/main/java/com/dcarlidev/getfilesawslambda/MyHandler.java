@@ -11,13 +11,21 @@ import com.amazonaws.services.lambda.runtime.events.*;
 import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.AmazonS3ClientBuilder;
 import com.amazonaws.services.s3.event.S3EventNotification.S3EventNotificationRecord;
+import com.amazonaws.services.s3.transfer.TransferManager;
+import com.amazonaws.services.s3.transfer.TransferManagerBuilder;
 import com.amazonaws.services.sqs.AmazonSQS;
 import com.amazonaws.services.sqs.AmazonSQSClientBuilder;
 import com.amazonaws.services.sqs.model.SendMessageRequest;
 import com.dcarlidev.getfilesawslambda.xml.MTFile;
 import java.io.BufferedReader;
+import java.io.ByteArrayInputStream;
+import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.nio.file.Files;
+import java.nio.file.Paths;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import org.simpleframework.xml.Serializer;
 import org.simpleframework.xml.core.Persister;
 
@@ -26,14 +34,14 @@ import org.simpleframework.xml.core.Persister;
  * @author carlos
  */
 public class MyHandler {
-
+    
     private LambdaLogger logger;
     private final AmazonS3 s3Client;
     private final Serializer serializer;
     private final AmazonSQS sqs;
     private final String queue_SNPI;
     private final String queue_transactions;
-
+    
     public MyHandler() {
         s3Client = AmazonS3ClientBuilder.defaultClient();
         serializer = new Persister();
@@ -41,13 +49,13 @@ public class MyHandler {
         queue_SNPI = System.getenv("Queue_SNPI_NoTransactions");
         queue_transactions = System.getenv("Queue_SNPI_Transactions");
     }
-
+    
     public void handler(S3Event event, Context context) {
         logger = context.getLogger();
         String dataObject = getDataFromFile(event);
         processData(dataObject);
     }
-
+    
     private String getDataFromFile(S3Event event) {
         S3EventNotificationRecord record = event.getRecords().get(0);
         String bucketName = record.getS3().getBucket().getName();
@@ -55,7 +63,7 @@ public class MyHandler {
         InputStream data = s3Client.getObject(bucketName, fileName).getObjectContent();
         StringBuilder objectData = new StringBuilder();
         try (BufferedReader buffer = new BufferedReader(new InputStreamReader(data))) {
-            buffer.lines().forEach(line -> objectData.append(line));
+            buffer.lines().forEach(line -> objectData.append(line).append("\n"));
             logger.log("The data from file " + fileName + " is completed");
             return objectData.toString();
         } catch (Exception e) {
@@ -63,15 +71,16 @@ public class MyHandler {
             return "";
         }
     }
-
+    
     public void processData(String dataObject) {
         if (!dataObject.equals("")) {
-
+            
             try {
                 MTFile mtfile = serializer.read(MTFile.class, dataObject);
                 logger.log("Deserializer complete for " + mtfile.getId());
                 String messageType = mtfile.getMessageType();
                 String field4 = mtfile.getField4();
+                logger.log("Field4: " + field4);
                 switch (messageType) {
                     case "MT940":
                         sendDataToSQSQueue(queue_SNPI, field4);
@@ -85,10 +94,46 @@ public class MyHandler {
             }
         }
     }
-
+    
     public void sendDataToSQSQueue(String queueName, String data) {
         logger.log("Sendind message to queue " + queueName);
         sqs.sendMessage(new SendMessageRequest(queueName, data));
     }
-
+    
+    public static void main(String... args) {
+//        String example = "<Transaction>\n"
+//                + "	<Id>003338083481207421</Id>\n"
+//                + "	<Timestamp>20191014115925</Timestamp>\n"
+//                + "	<CodeBank>003338</CodeBank>\n"
+//                + "	<Serial>hhhhhhhhhhhhhhhhhhh</Serial>\n"
+//                + "	<MessageType>MT103</MessageType>\n"
+//                + "	<Field4>\n"
+//                + "		:20:191014123456\n"
+//                + "		:21:191014999999\n"
+//                + "		:25:PL30116022020000001111111111\n"
+//                + "		:28C:1433\n"
+//                + "		:60F:C141019USD1000,01\n"
+//                + "		:61:0506200620CN100,00\n"
+//                + "		BancoBasa\n"
+//                + "		:62F:C050620PLN1005,01\n"
+//                + "		:64:C050620PLN1005,01\n"
+//                + "		:86:Wyci?g nr: 143 z dnia: 2019-10-14 \n"
+//                + "	</Field4>\n"
+//                + "</Transaction>";
+        MyHandler h = new MyHandler();
+        StringBuilder objectData = new StringBuilder();
+        try {
+            byte[] buf = Files.readAllBytes(Paths.get("C:\\Users\\lisbet\\Desktop\\Mensajes\\MT940-92.xml"));
+            InputStream data = new ByteArrayInputStream(buf);
+            try (BufferedReader buffer = new BufferedReader(new InputStreamReader(data))) {
+                buffer.lines().forEach(line -> objectData.append(line).append("\n"));
+            } catch (Exception e) {
+            }
+        } catch (IOException ex) {
+            Logger.getLogger(MyHandler.class.getName()).log(Level.SEVERE, null, ex);
+        }
+        System.out.println("ObjectData: " + objectData.toString());
+        h.processData(objectData.toString());
+    }
+    
 }

@@ -11,8 +11,6 @@ import com.amazonaws.services.lambda.runtime.events.*;
 import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.AmazonS3ClientBuilder;
 import com.amazonaws.services.s3.event.S3EventNotification.S3EventNotificationRecord;
-import com.amazonaws.services.s3.transfer.TransferManager;
-import com.amazonaws.services.s3.transfer.TransferManagerBuilder;
 import com.amazonaws.services.sqs.AmazonSQS;
 import com.amazonaws.services.sqs.AmazonSQSClientBuilder;
 import com.amazonaws.services.sqs.model.SendMessageRequest;
@@ -101,25 +99,6 @@ public class MyHandler {
     }
     
     public static void main(String... args) {
-//        String example = "<Transaction>\n"
-//                + "	<Id>003338083481207421</Id>\n"
-//                + "	<Timestamp>20191014115925</Timestamp>\n"
-//                + "	<CodeBank>003338</CodeBank>\n"
-//                + "	<Serial>hhhhhhhhhhhhhhhhhhh</Serial>\n"
-//                + "	<MessageType>MT103</MessageType>\n"
-//                + "	<Field4>\n"
-//                + "		:20:191014123456\n"
-//                + "		:21:191014999999\n"
-//                + "		:25:PL30116022020000001111111111\n"
-//                + "		:28C:1433\n"
-//                + "		:60F:C141019USD1000,01\n"
-//                + "		:61:0506200620CN100,00\n"
-//                + "		BancoBasa\n"
-//                + "		:62F:C050620PLN1005,01\n"
-//                + "		:64:C050620PLN1005,01\n"
-//                + "		:86:Wyci?g nr: 143 z dnia: 2019-10-14 \n"
-//                + "	</Field4>\n"
-//                + "</Transaction>";
         MyHandler h = new MyHandler();
         StringBuilder objectData = new StringBuilder();
         try {
